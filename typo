@@ -1,0 +1,89 @@
+#!/usr/bin/python
+# vim: noet sw=4 ts=4
+
+import	sys
+import	os
+import	time
+import	random
+import	string
+
+
+class	Typos( object ):
+
+	BS		=	'\b'
+	CEOL	=	'\033[K'
+	MAXSAFE =	10
+	LETTERS	=	string.ascii_letters + string.digits + string.punctuation
+	NLETTERS=	len(LETTERS)
+
+	def	__init__( self, wpm = 40 ):
+		self.wpm    = float( wpm )
+		self.odds   =	{
+			'cap': 0.1,
+			'typo' : 0.01,
+			'swap' : 0.1,
+		}
+		return
+
+	def	random( self, scale = 1.0 ):
+		return random.random() * scale
+
+	def	choose( self, odds = 0.5 ):
+		return self.random() < odds
+
+	def	wait( self, nap = 1.0 ):
+		time.sleep( self.random( 10.0 / self.wpm ) )
+
+	def	puts( self, s, nap = 1.0, raw = False ):
+		if raw:
+			sys.stdout.write( s )
+			sys.stdout.flush()
+			self.wait( nap )
+		else:
+			for letter in s:
+				sys.stdout.write(letter)
+				sys.stdout.flush()
+				self.wait( nap )
+		return
+
+	def	write( self, line ):
+		line = line.expandtabs()
+		last    = ' '
+		while len( line ) > 0:
+			letter = line[0]
+			line = line[1:]
+			if self.choose( self.odds['typo'] ):
+				# Time for an error of some kind
+				hindsight = int( self.random( Typos.MAXSAFE ) )
+				# How will we mangle this one?
+				if letter.islower() and last.isupper() and self.choose(
+					self.odds['cap']
+				):
+					# Simulate slow caps release (CL not Cl)
+					typo = string.upper( letter )
+				else:
+					# Just pick something
+					typo = Typos.LETTERS[ int(self.random(Typos.NLETTERS)) ]
+				self.puts( typo )
+				safe = line[:hindsight]
+				self.puts( safe )
+				self.puts( Typos.BS * (len(safe)+1) )
+				if self.choose():
+					self.puts( Typos.CEOL, raw = True )
+			# Output the character we now have
+			self.puts( letter )
+			last = letter
+		sys.stdout.write( '\n' )
+		return
+
+if __name__ == '__main__':
+	typo = Typos()
+	if len(sys.argv) == 1:
+		for line in sys.stdin:
+			typo.write( line.rstrip() )
+	else:
+		for fn in sys.argv[1:]:
+			with open( fn, 'rt' ) as f:
+				for line in f:
+					typo.write( line.rstrip() )
+	exit( 0 )
